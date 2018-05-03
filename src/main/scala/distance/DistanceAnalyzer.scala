@@ -1,7 +1,7 @@
 package distance
 
 import io.{HaversineDistanced, HaversineKeyValue, ReducedTelekomEvent}
-import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.expressions.{Window, WindowSpec}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
@@ -9,9 +9,9 @@ final case class HaversineRoundedKeyValue(dataset: String, haversine: Int)
 
 object DistanceAnalyzer {
 
-  val dsPartitioner = Window.partitionBy("dataset")
-  val orderedDsPartitioner = Window.partitionBy("dataset").orderBy("haversine")
-  val reverseDsPartitioner = Window.partitionBy("dataset").orderBy(col("haversine").desc)
+  val dsPartitioner: WindowSpec = Window.partitionBy("dataset")
+  val orderedDsPartitioner: WindowSpec = Window.partitionBy("dataset").orderBy("haversine")
+  val reverseDsPartitioner: WindowSpec = Window.partitionBy("dataset").orderBy(col("haversine").desc)
 
 
 
@@ -123,5 +123,4 @@ object DistanceAnalyzer {
     }
     false
   }
-
 }

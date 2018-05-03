@@ -5,7 +5,7 @@ import java.sql.Timestamp
 import config.AppConfiguration
 import distance.Haversine
 import filter.CellFilter
-import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.expressions.{UserDefinedFunction, Window, WindowSpec}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import util.TimeConverter
@@ -23,14 +23,11 @@ final case class PairedCellDistances(lat: Double, lng: Double, oLat: Double, oLn
 
 object DataTransform {
 
-  val timeConverter = (timestamp: Timestamp) => {TimeConverter.convertTimestampToDate(timestamp)}
-  val sqlTimeConverter = udf(timeConverter)
+  val udfTimeConverter: UserDefinedFunction = udf((timestamp: Timestamp) => TimeConverter.convertTimestampToDate(timestamp))
+  val udfGetHour: UserDefinedFunction = udf((timestamp: Timestamp) => timestamp.toLocalDateTime.getHour)
 
-  val getHour = (timestamp: Timestamp) => {timestamp.toLocalDateTime().getHour()}
-  val sqlGetHour = udf(getHour)
-
-  val dsGroupingCriteria = Window.partitionBy("dataset", "subscriber")
-  val distanceRankingPartitioner = Window.partitionBy("lat", "lng").orderBy("haversine")
+  val dsGroupingCriteria: WindowSpec = Window.partitionBy("dataset", "subscriber")
+  val dsDistanceRankingCriteria: WindowSpec = Window.partitionBy("lat", "lng").orderBy("haversine")
 
 
 
@@ -38,7 +35,7 @@ object DataTransform {
     import spark.implicits._
 
     val unfilteredDs = ds
-      .withColumn("dataset", sqlTimeConverter(ds("timestamp")))
+      .withColumn("dataset", udfTimeConverter(ds("timestamp")))
       .select("dataset", "subscriber", "timestamp", "lat", "lng")
       .filter($"lat" > 0.0 && $"lng" > 0.0)
       .na.drop()
@@ -111,7 +108,7 @@ object DataTransform {
     import spark.implicits._
 
     ds.select("dataset", "timestamp", "lat", "lng")
-      .withColumn("dataframe", sqlGetHour(ds("timestamp")))
+      .withColumn("dataframe", udfGetHour(ds("timestamp")))
       .map{ case Row(dataset: String, timestamp: Timestamp, lat: Double, lng: Double, dataframe: Int) =>
         TimeSeriesTelekomEvent(dataset, dataframe, lat, lng)
       }
@@ -129,10 +126,9 @@ object DataTransform {
       .map{ case Row(lat: Double, lng: Double, oLat: Double, oLng: Double) =>
         PairedCellDistances(lat, lng, oLat, oLng, Haversine.calculateDistance(lat, lng, oLat, oLng)) }
       .withColumn("haversine", round($"haversine", 2))
-      .withColumn("nearness", rank().over(distanceRankingPartitioner))
+      .withColumn("nearness", rank().over(dsDistanceRankingCriteria))
       .filter(r => r.getInt(5) <= k)
       .select("lat", "lng", "oLat", "oLng", "haversine")
       .as[PairedCellDistances]
   }
-
 }

@@ -15,5 +15,4 @@ object CrowdAnalyzer {
       .withColumnRenamed("count", "crowd")
       .as[TimeSeriesGroupedTelekomEvent]
   }
-
 }

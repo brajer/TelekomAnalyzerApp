@@ -2,6 +2,7 @@ package filter
 
 import distance.Haversine
 import io.{Cell, ReducedTelekomEvent}
+import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, SparkSession}
 
@@ -14,18 +15,21 @@ object CellFilter {
   val innerBudapestCenter = Cell(47.4963477, 19.0402499)
   val innerBudapestRadius = 2.5
 
-  val distanceFromOuterBudapest = (lat: Double, lng: Double) => { Haversine.calculateDistance(lat, lng, outerBudapestCenter.lat, outerBudapestCenter.lng) }
-  val sqlDistanceFromOuterBudapest = udf(distanceFromOuterBudapest)
+  val udfDistanceFromOuterBudapest: UserDefinedFunction = udf(
+    (lat: Double, lng: Double) => Haversine.calculateDistance(lat, lng, outerBudapestCenter.lat, outerBudapestCenter.lng)
+  )
 
-  val distanceFromInnerBudapest = (lat: Double, lng: Double) => { Haversine.calculateDistance(lat, lng, innerBudapestCenter.lat, innerBudapestCenter.lng) }
-  val sqlDistanceFromInnerBudapest = udf(distanceFromInnerBudapest)
+  val udfDistanceFromInnerBudapest: UserDefinedFunction = udf(
+    (lat: Double, lng: Double) => Haversine.calculateDistance(lat, lng, innerBudapestCenter.lat, innerBudapestCenter.lng)
+  )
 
   /* AIRPORT */
-  val airport = Cell(47.4288208, 19.2547013)
-  val airportRadius = 1
+  val airport = Cell(47.4353966, 19.2344533)
+  val airportRadius = 3 // in km
 
-  val distanceFromAirport = (lat: Double, lng: Double) => { Haversine.calculateDistance(lat, lng, airport.lat, airport.lng) }
-  val sqlDistanceFromAirport = udf(distanceFromAirport)
+  val udfDistanceFromAirport: UserDefinedFunction = udf(
+    (lat: Double, lng: Double) => Haversine.calculateDistance(lat, lng, airport.lat, airport.lng)
+  )
 
 
 
@@ -33,7 +37,7 @@ object CellFilter {
     import spark.implicits._
 
     ds
-      .withColumn("distance", sqlDistanceFromOuterBudapest(ds("lat"), ds("lng")))
+      .withColumn("distance", udfDistanceFromOuterBudapest(ds("lat"), ds("lng")))
       .filter($"distance" <= outerBudapestRadius)
       .drop($"distance")
       .as[ReducedTelekomEvent]
@@ -43,7 +47,7 @@ object CellFilter {
     import spark.implicits._
 
     ds
-      .withColumn("distance", sqlDistanceFromInnerBudapest(ds("lat"), ds("lng")))
+      .withColumn("distance", udfDistanceFromInnerBudapest(ds("lat"), ds("lng")))
       .filter($"distance" <= innerBudapestRadius)
       .drop($"distance")
       .as[ReducedTelekomEvent]
@@ -53,10 +57,9 @@ object CellFilter {
     import spark.implicits._
 
     ds
-      .withColumn("distance", sqlDistanceFromAirport(ds("lat"), ds("lng")))
+      .withColumn("distance", udfDistanceFromAirport(ds("lat"), ds("lng")))
       .filter($"distance" <= airportRadius)
       .drop($"distance")
       .as[ReducedTelekomEvent]
   }
-
 }

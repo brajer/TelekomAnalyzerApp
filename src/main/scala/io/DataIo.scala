@@ -16,7 +16,7 @@ object DataIo {
       .as[OriginalTelekomEvent]
   }
 
-  def writeGenericJson(spark: SparkSession, ds: Dataset[_], outputPath: String) = {
+  def writeGenericJson(spark: SparkSession, ds: Dataset[_], outputPath: String): Unit = {
     ds
       .coalesce(1)
       .write
@@ -25,7 +25,7 @@ object DataIo {
       .json(outputPath)
   }
 
-  def writeGenericCsv(spark: SparkSession, ds: Dataset[_], outputPath: String) = {
+  def writeGenericCsv(spark: SparkSession, ds: Dataset[_], outputPath: String): Unit = {
     ds
       //.repartition(1)
       .coalesce(1)

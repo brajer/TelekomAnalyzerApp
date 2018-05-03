@@ -144,5 +144,4 @@ object TelekomAnalyzerApp {
 
     spark.stop()
   }
-
 }

@@ -13,8 +13,6 @@ object Haversine {
     val a = pow(sin(dLat/2),2) + pow(sin(dLon/2),2) * cos(lat1.toRadians) * cos(lat2.toRadians)
     val c = 2 * asin(sqrt(a))
 
-    EARTH_RADIUS * c
-    //return BigDecimal(EARTH_RADIUS * c).setScale(precision, BigDecimal.RoundingMode.HALF_UP).toDouble
+    EARTH_RADIUS * c //BigDecimal(EARTH_RADIUS * c).setScale(precision, BigDecimal.RoundingMode.HALF_UP).toDouble
   }
-
 }

@@ -7,7 +7,7 @@ import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
 import org.apache.spark.ml.regression.{DecisionTreeRegressionModel, DecisionTreeRegressor, GeneralizedLinearRegression, GeneralizedLinearRegressionModel, LinearRegression, LinearRegressionModel}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.ml.{Pipeline, PipelineModel}
-import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.expressions.{UserDefinedFunction, Window, WindowSpec}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
@@ -15,21 +15,22 @@ final case class KnnPredictionReady(dataset: String, dataframe: Int, lat: Double
 
 object CrowdPredictor {
 
-  val withWeightedCrowd = (haversine: Double, crowd: java.math.BigDecimal) => {crowd.doubleValue()/haversine}
-  val sqlWithWeightedCrowd = udf(withWeightedCrowd)
+  val udfWithWeightedCrowd: UserDefinedFunction = udf(
+    (haversine: Double, crowd: java.math.BigDecimal) => crowd.doubleValue()/haversine
+  )
 
-  val timeseriesDsOrderer = Window.orderBy("dataset", "dataframe", "lat", "lng") // should partition for cluster computing!
-  val timeseriesDsPartitioner = Window.partitionBy("dataset", "dataframe", "lat", "lng")
+  val timeseriesDsOrderer: WindowSpec = Window.orderBy("dataset", "dataframe", "lat", "lng")
+  val timeseriesDsPartitioner: WindowSpec = Window.partitionBy("dataset", "dataframe", "lat", "lng")
 
   val features = Array("datasetIndex", "dataframe", "lat", "lng", "lastFrameCrowd", "knnMin", "knnSum", "knnAvg", "knnClosest")
   val featuresNoLatLng = Array("datasetIndex", "dataframe", "lastFrameCrowd", "knnMin", "knnSum", "knnAvg", "knnClosest")
 
-  val indexer = new StringIndexer()
+  val indexer: StringIndexer = new StringIndexer()
     .setInputCol("dataset")
     .setOutputCol("datasetIndex")
 
   /* Feature vectorizer */
-  val assembler = new VectorAssembler()
+  val assembler: VectorAssembler = new VectorAssembler()
     .setInputCols(features)
     .setOutputCol("features")
 
@@ -58,7 +59,7 @@ object CrowdPredictor {
       .as[KnnPredictionReady]
   }
 
-  def makeCrowdPredictionWithLogisticRegression(spark: SparkSession, predDs: Dataset[KnnPredictionReady]) = {
+  def makeCrowdPredictionWithLogisticRegression(spark: SparkSession, predDs: Dataset[KnnPredictionReady]): Unit = {
 
     println("...Running Logistic Regression")
 
@@ -116,7 +117,7 @@ object CrowdPredictor {
     getEvaluationMetrics(predictions, "crowdIndex")
   }
 
-  def makeCrowdPredictionWithLinearRegression(spark: SparkSession, predDs: Dataset[KnnPredictionReady]) = {
+  def makeCrowdPredictionWithLinearRegression(spark: SparkSession, predDs: Dataset[KnnPredictionReady]): Unit = {
 
     println("...Running Linear Regression")
 
@@ -166,7 +167,7 @@ object CrowdPredictor {
     getEvaluationMetrics(predictions, "crowd")
   }
 
-  def makeCrowdPredictionWithGLR(spark: SparkSession, predDs: Dataset[KnnPredictionReady]) = {
+  def makeCrowdPredictionWithGLR(spark: SparkSession, predDs: Dataset[KnnPredictionReady]): Unit = {
 
     val family = "poisson" // "gaussian", "binomial", "poisson", "gamma"
 
@@ -229,7 +230,7 @@ object CrowdPredictor {
     getEvaluationMetrics(predictions, "crowd")
   }
 
-  def makeCrowdPredictionWithNaiveBayes(spark: SparkSession, predDs: Dataset[KnnPredictionReady]) = {
+  def makeCrowdPredictionWithNaiveBayes(spark: SparkSession, predDs: Dataset[KnnPredictionReady]): Unit = {
 
     println("...Running Naive Bayes")
 
@@ -278,7 +279,7 @@ object CrowdPredictor {
     getEvaluationMetrics(predictions, "crowdIndex")
   }
 
-  def makeCrowdPredictionWithDecisionTreeClassifier(spark: SparkSession, predDs: Dataset[KnnPredictionReady]) = {
+  def makeCrowdPredictionWithDecisionTreeClassifier(spark: SparkSession, predDs: Dataset[KnnPredictionReady]): Unit = {
 
     println("...Running Decision Tree")
 
@@ -336,7 +337,7 @@ object CrowdPredictor {
     getEvaluationMetrics(predictions, "crowdIndex")
   }
 
-  def makeCrowdPredictionWithDecisionTreeRegression(spark: SparkSession, predDs: Dataset[KnnPredictionReady]) = {
+  def makeCrowdPredictionWithDecisionTreeRegression(spark: SparkSession, predDs: Dataset[KnnPredictionReady]): Unit = {
 
     println("...Running Decision Tree Regression")
 
@@ -384,7 +385,7 @@ object CrowdPredictor {
   }
 
 
-  private def getEvaluationMetrics(predictions: DataFrame, label: String) = {
+  private def getEvaluationMetrics(predictions: DataFrame, label: String): Unit = {
 
     val regressionRmseEvaluator = new RegressionEvaluator()
       .setLabelCol(label)
@@ -423,5 +424,4 @@ object CrowdPredictor {
     println("Recall -> " + multiClassRecallEvaluator.evaluate(predictions))*/
 
   }
-
 }
